@@ -6,7 +6,7 @@ const JSON = window.JSON;
 class ChatStore {
 
     static write(name, obj){
-        let str = '';
+        let str = ''; 
         try{ str = JSON.stringify((obj instanceof Map || obj instanceof Set) ? [...obj] : obj); } catch(e){ console.error(e) }
         localStorage.setItem(name, str);
     }

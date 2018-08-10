@@ -8,7 +8,7 @@ import EventEmitter from './emitter'
 import ChatSource from './source'
 import ChatUser from './user'
 import {MessageBuilder, MessageTypes} from './messages'
-import {ChatMenu, ChatUserMenu, ChatWhisperUsers, ChatEmoteMenu, ChatSettingsMenu} from './menus'
+import {ChatMenu, ChatUserMenu, ChatWhisperUsers, ChatEmoteMenu, ChatSettingsMenu, BDGGMenu} from './menus'
 import ChatAutoComplete from './autocomplete'
 import ChatInputHistory from './history'
 import ChatUserFocus from './focus'
@@ -16,6 +16,7 @@ import ChatStore from './store'
 import UserFeatures from './features'
 import Settings from './settings'
 import ChatWindow from './window'
+import Style from './style'
 
 const regextime = /(\d+(?:\.\d*)?)([a-z]+)?/ig
 const regexsafe = /[\-\[\]\/{}()*+?.\\^$|]/g
@@ -89,6 +90,11 @@ const settingsdefault = new Map([
     ['taggedvisibility', false],
     ['hidensfw', false]
 ])
+const bdggsettingsdefault = new Map([
+    ['bdgg-font-size', '13px'],
+    ['bdgg-odd-line-colours', false],
+    ['bdgg-name-popup', false]
+]);
 const commandsinfo = new Map([
     ['help',            {desc: 'Helpful information.'}],
     ['emotes',          {desc: 'A list of the chats emotes in text form.'}],
@@ -128,6 +134,9 @@ const focusIfNothingSelected = chat => {
         debounceFocus(chat);
     }
 }
+// const createCustomMenu = (name, btn-name) => {
+    
+// }
 const extractHostname = (url) => {
     let hostname = url.indexOf("://") > -1? url.split('/')[2]: url.split('/')[0];
     hostname = hostname.split(':')[0];
@@ -141,6 +150,7 @@ class Chat {
         /** @type JQuery */
         this.ui              = null;
         this.css             = null;
+        this.bdggcss         = null;
         this.output          = null;
         this.input           = null;
         this.loginscrn       = null;
@@ -149,13 +159,14 @@ class Chat {
         this.authenticated   = false;
         this.backlogloading  = false;
         this.unresolved      = [];
-        this.emoticons       = new Set();
+        this.emoticons = new Set();
         this.twitchemotes    = new Set();
         this.user            = new ChatUser();
         this.users           = new Map();
         this.whispers        = new Map();
         this.windows         = new Map();
         this.settings        = new Map([...settingsdefault]);
+        this.bdggsettings    = new Map([...bdggsettingsdefault]);
         this.autocomplete    = new ChatAutoComplete();
         this.menus           = new Map();
         this.taggednicks     = new Map();
@@ -227,6 +238,7 @@ class Chat {
         this.control.on('M',               data => this.cmdMENTIONS(data));
         this.control.on('STALK',           data => this.cmdSTALK(data));
         this.control.on('S',               data => this.cmdSTALK(data));
+
     }
 
     withUserAndSettings(data){
@@ -264,10 +276,22 @@ class Chat {
         this.ignoring = new Set(this.settings.get('ignorenicks'));
         return this;
     }
-
+    
+    withBDGGSettings(){
+        let settings = ChatStore.read('bdgg.settings') == null ? [] : new Map(ChatStore.read('bdgg.settings'));
+        if(settings.size > 0 ){
+            [...this.bdggsettings.keys()]
+            .filter(k => settings.get(k) !== undefined && settings.get(k) !== null)
+            .forEach(k => this.bdggsettings.set(k, settings.get(k)));
+        }
+        this.saveBDGGSettings();
+        return this;
+    }
+ 
     withGui(){
         this.ui             = $('#chat')
         this.css            = $('#chat-styles')[0]['sheet']
+        this.bdggcss        = new Style()
         this.ishidden       = (document['visibilityState'] || 'visible') !== 'visible'
         this.output         = this.ui.find('#chat-output-frame')
         this.input          = this.ui.find('#chat-input-control')
@@ -280,6 +304,9 @@ class Chat {
 
         this.windowToFront('main')
 
+        
+        ChatMenu.create("bdgg", "BDGG Settings", "right", "fa-cogs", this.ui);
+
         this.menus.set('settings',
             new ChatSettingsMenu(this.ui.find('#chat-settings'), this.ui.find('#chat-settings-btn'), this))
         this.menus.set('emotes',
@@ -288,6 +315,8 @@ class Chat {
             new ChatUserMenu(this.ui.find('#chat-user-list'), this.ui.find('#chat-users-btn'), this))
         this.menus.set('whisper-users',
             new ChatWhisperUsers(this.ui.find('#chat-whisper-users'), this.ui.find('#chat-whisper-btn'), this))
+        this.menus.set('better-dgg',
+            new BDGGMenu(this.ui.find("#chat-bdgg-settings"), this.ui.find('#chat-bdgg-btn'), this))
 
         commandsinfo.forEach((a, k) => {
             this.autocomplete.add(`/${k}`);
@@ -297,6 +326,7 @@ class Chat {
         this.twitchemotes.forEach(e => this.autocomplete.add(e, true))
         this.autocomplete.bind(this)
         this.applySettings(false)
+        this.applyBDGGSettings(false)
 
         // Chat input
         this.input.on('keypress', e => {
@@ -385,26 +415,20 @@ class Chat {
         // Login
         this.loginscrn.on('click', '#chat-btn-login', () => {
             this.loginscrn.hide()
-            if (LOGIN_URI) {
-                window.top.location.href = LOGIN_URI;
-                return;
-            }
-            try {
-                window.top.showLoginModal();
-            } catch(_) {
-                const {origin, pathname} = location;
-                if (window.self === window.top) {
-                    let follow = '';
-                    try {
-                        follow = encodeURIComponent(pathname);
-                    } catch (_) {}
-                    location.href = `${origin}/login?follow=${follow}`;
-                } else {
-                    location.href = `${origin}/login`
-                }
+            try { window.top.showLoginModal() } catch(e){
+                const uri = location.protocol+'//'+location.hostname+(location.port ? ':'+location.port: '')
+                try {
+                    if(window.self === window.top){
+                        window.location.href = uri + '/login?follow=' + encodeURIComponent(window.location.pathname)
+                    } else {
+                        window.location.href = uri + '/login'
+                    }
+                    return false;
+                } catch(ignored) {}
+                window.location.href = uri + '/login'
             }
             return false
-        });
+        })
 
         this.loginscrn.on('click', '#chat-btn-cancel', () => this.loginscrn.hide())
         this.output.on('click mousedown', '.msg-whisper a.user', e => {
@@ -442,7 +466,7 @@ class Chat {
 
     withWhispers(){
         if(this.authenticated) {
-            $.ajax({url: `${API_URI}/api/messages/unread`})
+            $.ajax({url: '/api/messages/unread'})
                 .done(d => d.forEach(e => this.whispers.set(e['username'].toLowerCase(), {
                     id: e['messageid'],
                     nick: e['username'],
@@ -462,7 +486,7 @@ class Chat {
     saveSettings(){
         if(this.authenticated){
             if(this.settings.get('profilesettings')) {
-                $.ajax({url: `${API_URI}/api/chat/me/settings`, method:'post', data: JSON.stringify([...this.settings])});
+                $.ajax({url: '/api/chat/me/settings', method:'post', data: JSON.stringify([...this.settings])});
             } else {
                 ChatStore.write('chat.settings', this.settings);
             }
@@ -470,6 +494,8 @@ class Chat {
             ChatStore.write('chat.settings', this.settings);
         }
     }
+
+
 
     // De-bounced saveSettings
     commitSettings(){
@@ -479,6 +505,7 @@ class Chat {
         this.debouncedsave();
     }
 
+
     // Save settings if save=true then apply current settings to chat
     applySettings(save=true){
         if(save) this.saveSettings();
@@ -486,7 +513,7 @@ class Chat {
         // Formats
         DATE_FORMATS.TIME = this.settings.get('timestampformat');
 
-        // Ignore Regex
+        // Ignore Regex// Ignore Regex
         const ignores = Array.from(this.ignoring.values()).map(Chat.makeSafeForRegex);
         this.ignoreregex = ignores.length > 0 ? new RegExp(`\\b(?:${ignores.join('|')})\\b`, 'i') : null;
 
@@ -504,6 +531,46 @@ class Chat {
 
         // Update maxlines
         [...this.windows].forEach(w => w.maxlines = this.settings.get('maxlines'));
+    }
+
+    saveBDGGSettings(){
+        ChatStore.write('bdgg.settings', this.bdggsettings);
+    }
+
+    commitBDGGSettings(){
+        if(!this.debouncedsave) {
+            this.debouncedsave = debounce(1000, () => this.saveBDGGSettings());
+        }
+        this.debouncedsave();
+    }
+
+    applyBDGGSettings(save=true){
+        if(save) this.saveBDGGSettings();
+
+        /* font size */
+        var settings = [...this.bdggsettings]
+                .filter(key => this.settings.get(key) != false);
+        this.bdggcss.clearStyles();
+        let fontSize = this.bdggsettings.get('font-size');
+        if(fontSize != false){
+            let frule = ".chat-lines > div{font-size: "+fontSize+"px}";
+            this.bdggcss.addStyle("font-size", frule);
+        }
+
+        
+        let olc = this.bdggsettings.get('bdgg-odd-line-colours');
+        if(olc){
+            let olcrule = ".chat-lines > div:nth-of-type(odd):not(.msg-ui):not(.msg-status):not(.msg-info) {background-color: #171717}";
+            this.bdggcss.addStyle("odd-line-colours", olcrule);
+        }
+
+        // Array.from(this.bdggsettings.keys())
+        //     .filter(key => this.bdggsettings.get(key) !== this.)
+        
+        // Array.from(this.bdggsettings.keys())
+        //     .filter(key => typeof this.bdggsettings.get(key) === 'boolean')
+        //     .forEach(key => this.ui.toggleClass(`bdgg-${val}`, this.bdggsettings.get(key)));
+
     }
 
     addUser(data){
@@ -882,7 +949,7 @@ class Chat {
             if(win)
                 MessageBuilder.historical(data.data, user, data.timestamp).into(this, win)
             if(win === this.getActiveWindow())
-                $.ajax({url: `${API_URI}/api/messages/msg/${messageid}/open`, method:'post'})
+                $.ajax({url: `/api/messages/msg/${messageid}/open`, method:'post'})
             else
                 conv.unread++
             this.menus.get('whisper-users').redraw()
@@ -1141,7 +1208,7 @@ class Chat {
         this.busystalk = true;
         const limit = parts[1] ? parseInt(parts[1]) : 3;
         MessageBuilder.info(`Getting messages for ${[parts[0]]} ...`).into(this);
-        $.ajax({timeout:5000, url: `${API_URI}/api/chat/stalk?username=${encodeURIComponent(parts[0])}&limit=${limit}`})
+        $.ajax({timeout:5000, url: `/api/chat/stalk?username=${encodeURIComponent(parts[0])}&limit=${limit}`})
             .always(() => {
                 this.nextallowedstalk = moment().add(10, 'seconds');
                 this.busystalk = false;
@@ -1180,7 +1247,7 @@ class Chat {
         this.busymentions = true;
         const limit = parts[1] ? parseInt(parts[1]) : 3;
         MessageBuilder.info(`Getting mentions for ${[parts[0]]} ...`).into(this);
-        $.ajax({timeout:5000, url: `${API_URI}/api/chat/mentions?username=${encodeURIComponent(parts[0])}&limit=${limit}`})
+        $.ajax({timeout:5000, url: `/api/chat/mentions?username=${encodeURIComponent(parts[0])}&limit=${limit}`})
             .always(() => {
                 this.nextallowedmentions = moment().add(10, 'seconds');
                 this.busymentions = false;
@@ -1256,7 +1323,7 @@ class Chat {
 
     cmdBANINFO(){
         MessageBuilder.info('Loading ban info ...').into(this);
-        $.ajax({url:`${API_URI}/api/chat/me/ban`})
+        $.ajax({url:`/api/chat/me/ban`})
             .done(d => {
                 if(d === 'bannotfound') {
                     MessageBuilder.info(`You have no active bans. Thank you.`).into(this);
@@ -1314,7 +1381,7 @@ class Chat {
                     `or close them from the whispers menu.\r`+
                     `Loading messages ...`*/
                 ).into(this, win)
-                $.ajax({url: `${API_URI}/api/messages/usr/${encodeURIComponent(user.nick)}/inbox`})
+                $.ajax({url: `/api/messages/usr/${encodeURIComponent(user.nick)}/inbox`})
                     .fail(() => MessageBuilder.error(`Failed to load messages :(`).into(this, win))
                     .done(data => {
                         if(data.length > 0) {

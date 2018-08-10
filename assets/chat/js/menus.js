@@ -116,6 +116,30 @@ class ChatMenu extends EventEmitter {
         chat.menus.forEach(m => m.hide());
     }
 
+    static create(name, title, align, icon, chat){
+        chat.append("<div id='chat-"+name+"-settings' class='chat-menu "+align+"' title='"+title+"'>\
+        <div class='list-wrap'>\
+            <div class='toolbar'>\
+                <h5><span>"+title+"</span><i class='fa fa-chevron-circle-right menu-close'></i>\
+            </div>\
+            <div class='scrollable nano has-scrollbar'>\
+                <div class='content nano-content' tabindex='0' style='right: -17px'></div>\
+                <div class='nano-pane' style='display:none;'></div>\
+            </div>\
+        </div>\
+        <div>");
+        if(align == "right") {
+            chat.find("#chat-tools-wrap").find("div:first-of-type").after('<a id="chat-'+name+'-btn" class="chat-tool-btn" title="'+title+'">\
+                <span class="fa '+icon+'"></span>\
+            </a>');
+        } else {
+            chat.find("#chat-tools-wrap").find("div:first-of-type").before('<a id="chat-'+name+'-btn" class="chat-tool-btn" title="'+title+'">\
+                <span class="fa '+icon+'"></span>\
+            </a>');
+        }
+
+    }
+
 }
 
 class ChatSettingsMenu extends ChatMenu {
@@ -142,7 +166,7 @@ class ChatSettingsMenu extends ChatMenu {
             switch(name){
                 case 'profilesettings':
                     if(!val && this.chat.authenticated)
-                        $.ajax({url: `${API_URI}/api/chat/me/settings`, method:'delete'})
+                        $.ajax({url: '/api/chat/me/settings', method:'delete'})
                     break;
                 case 'notificationwhisper':
                 case 'notificationhighlight':
@@ -195,6 +219,15 @@ class ChatSettingsMenu extends ChatMenu {
                     break;
             }
         });
+    }
+}
+
+class CustomChatMenu extends ChatMenu {
+    constructor(ui, btn, chat) {
+        super(ui, btn, chat)
+        this.notificationEl = this.ui.find('#chat-settings-notification-permissions')
+        this.ui.on('change', 'input[type="checkbox"],select', e => this.onSettingsChange(e))
+        this.ui.on('keypress blur', 'textarea[name="customhighlight"]', e => this.onCustomHighlightChange(e))
     }
 }
 
@@ -415,11 +448,64 @@ class ChatWhisperUsers extends ChatMenu {
     }
 
 }
+class BDGGMenu extends ChatMenu {
+
+
+    constructor(ui, btn, chat){
+        super(ui, btn, chat);
+        this.build();
+        this.ui.on('change', 'input[type="checkbox"],select', e => this.onSettingsChange(e))
+    }
+    build(){
+        /* FONT SIZE */
+        var selectstr = "<select name='bdgg-font-size'>"; 
+        for(var i=6; i<24; i +=1 ){
+            if(this.chat.bdggsettings.get("font-size") == i){        
+                 selectstr += "<option selected value='"+i+"'>"+i+" px</option>";
+            } else {
+                selectstr += "<option value='"+i+"'>"+i+" px</option>";
+            }
+        }
+        selectstr += "</select>";
+        checkboxes = "";
+
+        /* APPPEND */
+        this.ui.find(".content").append("<div id='chat-bdgg-settings-form'>\
+            <div class='form-group'>\
+                <label for='bdgg-font-size'>Font size</label>\
+                "+selectstr+"\
+            </div>\
+            <div class='form-group checkbox'>\
+                <label title='Show user menu'><input type='checkbox' name='bdgg-name-menu' id='bdgg-name-menu'>Show user menu</label>\
+            </div>\
+            <div class='form-group checkbox'>\
+                <label title='Flip background colour per line'><input "+checkboxes.get("bdgg-odd-line-colours")+" type='checkbox' name='bdgg-odd-line-colours' id='bdgg-odd-line-colours'>Flip background colour per line</label>\
+            </div>\
+        </div>");
+    }
+
+    onSettingsChange(e){
+        const val = getSettingValue(e.target)
+        const name = e.target.getAttribute('name') 
+        if(val !== undefined) {
+            this.chat.bdggsettings.set(name, val)
+            this.chat.applyBDGGSettings(false)
+            this.chat.commitBDGGSettings()
+        }
+    }
+
+    show(){
+        super.show();
+    }
+
+}
+
 
 export {
     ChatMenu,
     ChatSettingsMenu,
     ChatUserMenu,
     ChatEmoteMenu,
-    ChatWhisperUsers
+    ChatWhisperUsers,
+    BDGGMenu
 };

@@ -997,9 +997,9 @@ a.flair12:hover {
         border-radius: 0;
     }
 }
-#chat-settings {
+#chat-settings, #chat-bdgg-settings {
 
-    #chat-settings-form {
+    #chat-settings-form, #chat-bdgg-settings-form {
         margin: 20px 0;
     }
 
@@ -1055,7 +1055,7 @@ a.flair12:hover {
         box-sizing: border-box;
         padding: 0;
     }
-    select {
+    select, input[type="text"] {
         border-radius: 4px;
         width: 100%;
         display: block;
@@ -1206,4 +1206,83 @@ button.btn {
     color: $text-color3;
     background-color: $color-surface-light1;
     border-color: $color-surface-light3;
+}
+
+
+
+/* BDGG SETTINGS */
+#chat.bdgg_font-size_6 {
+	font-size: 6px !important;
+}
+
+#chat.bdgg_font-size_7 {
+	font-size: 7px !important;
+}
+
+#chat.bdgg_font-size_8 {
+	font-size: 8px !important;
+}
+
+#chat.bdgg_font-size_9 {
+	font-size: 9px !important;
+}
+
+#chat.bdgg_font-size_10 {
+	font-size: 10px !important;
+}
+
+#chat.bdgg_font-size_11 {
+	font-size: 11px !important;
+}
+
+#chat.bdgg_font-size_12 {
+	font-size: 12px !important;
+}
+
+#chat.bdgg_font-size_13 {
+	font-size: 13px !important;
+}
+
+#chat.bdgg_font-size_14 {
+	font-size: 14px !important;
+}
+
+#chat.bdgg_font-size_15 {
+	font-size: 15px !important;
+}
+
+#chat.bdgg_font-size_16 {
+	font-size: 16px !important;
+}
+
+#chat.bdgg_font-size_17 {
+	font-size: 17px !important;
+}
+
+#chat.bdgg_font-size_18 {
+	font-size: 18px !important;
+}
+
+#chat.bdgg_font-size_19 {
+	font-size: 19px !important;
+}
+
+#chat.bdgg_font-size_20 {
+	font-size: 20px !important;
+}
+
+#chat.bdgg_font-size_21 {
+	font-size: 21px !important;
+}
+
+#chat.bdgg_font-size_22 {
+	font-size: 22px !important;
+}
+
+#chat.bdgg_font-size_23 {
+	font-size: 23px !important;
+}
+
+#chat.bdgg_font-size_24 {
+	font-size: 24px !important;
 }
